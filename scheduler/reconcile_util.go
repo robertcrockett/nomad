@@ -460,6 +460,9 @@ func shouldFilter(alloc *structs.Allocation, isBatch bool) (untainted, ignore bo
 			if alloc.RanSuccessfully() {
 				return true, false
 			}
+			if alloc.LastRescheduleFailed() { // TODO: this needs testing
+				return false, false
+			}
 			return false, true
 		case structs.AllocDesiredStatusEvict:
 			return false, true
@@ -476,6 +479,10 @@ func shouldFilter(alloc *structs.Allocation, isBatch bool) (untainted, ignore bo
 	// Handle service jobs
 	switch alloc.DesiredStatus {
 	case structs.AllocDesiredStatusStop, structs.AllocDesiredStatusEvict:
+		if alloc.LastRescheduleFailed() {
+			return false, false
+		}
+
 		return false, true
 	}
 

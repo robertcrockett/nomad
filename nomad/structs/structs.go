@@ -10512,8 +10512,16 @@ type DeploymentStatusUpdate struct {
 
 // RescheduleTracker encapsulates previous reschedule events
 type RescheduleTracker struct {
-	Events []*RescheduleEvent
+	Events         []*RescheduleEvent
+	LastReschedule ResheduleTrackerAnnotation
 }
+
+type ResheduleTrackerAnnotation string
+
+const (
+	LastRescheduleSuccess       = ""
+	LastRescheduleFailedToPlace = "no placement"
+)
 
 func (rt *RescheduleTracker) Copy() *RescheduleTracker {
 	if rt == nil {
@@ -11090,7 +11098,9 @@ func (a *Allocation) NextRescheduleTime() (time.Time, bool) {
 		return time.Time{}, false
 	}
 
-	if a.DesiredStatus == AllocDesiredStatusStop || a.ClientStatus != AllocClientStatusFailed || failTime.IsZero() || reschedulePolicy == nil {
+	if (a.DesiredStatus == AllocDesiredStatusStop && !a.LastRescheduleFailed()) ||
+		(a.ClientStatus != AllocClientStatusFailed && a.ClientStatus != AllocClientStatusLost) ||
+		failTime.IsZero() || reschedulePolicy == nil {
 		return time.Time{}, false
 	}
 
@@ -11499,6 +11509,13 @@ func (a *Allocation) LastStartOfTask(taskName string) time.Time {
 	}
 
 	return task.StartedAt
+}
+
+func (a *Allocation) LastRescheduleFailed() bool {
+	if a.RescheduleTracker == nil {
+		return false
+	}
+	return a.RescheduleTracker.LastReschedule != LastRescheduleSuccess
 }
 
 // IdentityClaims are the input to a JWT identifying a workload. It

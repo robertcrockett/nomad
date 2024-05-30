@@ -4688,7 +4688,7 @@ func TestServiceSched_BlockedReschedule(t *testing.T) {
 		h.NextIndex(), []*structs.Evaluation{eval}))
 
 	// -----------------------------------
-	// first reschedule which works as expected
+	// first reschedule which works with delay as expected
 
 	// Process the evaluation and assert we have a plan
 	must.NoError(t, h.Process(NewServiceScheduler, eval))
@@ -4714,7 +4714,8 @@ func TestServiceSched_BlockedReschedule(t *testing.T) {
 	must.NoError(t, h.State.UpsertEvals(structs.MsgTypeTestSetup,
 		h.NextIndex(), []*structs.Evaluation{followupEval}))
 
-	// Process the follow-up eval, which results in a replacement and stop
+	// Follow-up delay "expires", so process the follow-up eval, which results
+	// in a replacement and stop
 	must.NoError(t, h.Process(NewServiceScheduler, followupEval))
 	must.Len(t, 2, h.Plans)
 	must.MapLen(t, 1, h.Plans[1].NodeUpdate)     // stop
@@ -4736,7 +4737,7 @@ func TestServiceSched_BlockedReschedule(t *testing.T) {
 	}
 
 	// -----------------------------------
-	// second reschedule but it blocks
+	// Replacement alloc fails, second reschedule but it blocks because of delay
 
 	alloc, err = h.State.AllocByID(ws, replacementAllocID)
 	must.NoError(t, err)
@@ -4802,7 +4803,7 @@ func TestServiceSched_BlockedReschedule(t *testing.T) {
 
 	must.NoError(t, h.Process(NewServiceScheduler, blockedEval))
 	must.Len(t, 5, h.Plans)
-	must.MapLen(t, 0, h.Plans[4].NodeUpdate)     // stop
+	must.MapLen(t, 1, h.Plans[4].NodeUpdate)     // stop
 	must.MapLen(t, 1, h.Plans[4].NodeAllocation) // place
 
 	out, err = h.State.AllocsByJob(ws, job.Namespace, job.ID, false)
@@ -4813,7 +4814,7 @@ func TestServiceSched_BlockedReschedule(t *testing.T) {
 		if alloc.ID != failedAllocID && alloc.ID != replacementAllocID {
 			must.NotNil(t, alloc.RescheduleTracker,
 				must.Sprint("replacement alloc should have reschedule tracker"))
-			must.Len(t, 1, alloc.RescheduleTracker.Events)
+			must.Len(t, 2, alloc.RescheduleTracker.Events)
 		}
 	}
 }
